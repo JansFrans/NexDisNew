@@ -1,2 +1,17 @@
+modules = ["python-3.11"]
 [agent]
 expertMode = true
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[nix]
+packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "gobject-introspection", "gtk3", "nano", "pkg-config", "qhull", "tcl", "tk"]
+
+[userenv]
+
+[userenv.shared]
+
+[deployment]
+deploymentTarget = "cloudrun"
