@@ -1,305 +1,303 @@
-![ffuf mascot](_img/ffuf_run_logo_600.png)
-# ffuf - Fuzz Faster U Fool
+# NexDisNew
 
-A fast web fuzzer written in Go.
+> **FFUF + Discord automation for collecting, storing, and viewing results from one place.**
 
-- [Installation](https://github.com/ffuf/ffuf#installation)
-- [Example usage](https://github.com/ffuf/ffuf#example-usage)
-    - [Content discovery](https://github.com/ffuf/ffuf#typical-directory-discovery)
-    - [Vhost discovery](https://github.com/ffuf/ffuf#virtual-host-discovery-without-dns-records)
-    - [Parameter fuzzing](https://github.com/ffuf/ffuf#get-parameter-fuzzing)
-    - [POST data fuzzing](https://github.com/ffuf/ffuf#post-data-fuzzing)
-    - [Using external mutator](https://github.com/ffuf/ffuf#using-external-mutator-to-produce-test-cases)
-    - [Configuration files](https://github.com/ffuf/ffuf#configuration-files)
-- [Help](https://github.com/ffuf/ffuf#usage)
-    - [Interactive mode](https://github.com/ffuf/ffuf#interactive-mode)
+NexDisNew is a Python-based Discord bot that adds a Discord interface around an FFUF-powered data collection workflow. Instead of watching a long terminal session, users can trigger the workflow, inspect results through Discord embeds, browse stored data, and use interactive panels for dashboards and historical analysis.
 
+The project is designed to make an FFUF-based workflow easier to operate from Discord while keeping collected results in local SQLite databases.
 
-## Installation
+---
 
-- [Download](https://github.com/ffuf/ffuf/releases/latest) a prebuilt binary from [releases page](https://github.com/ffuf/ffuf/releases/latest), unpack and run!
+## ✨ Features
 
-  _or_
-- If you are on macOS with [homebrew](https://brew.sh), ffuf can be installed with: `brew install ffuf`
-  
-  _or_
-- If you have recent go compiler installed: `go install github.com/ffuf/ffuf/v2@latest` (the same command works for updating)
-  
-  _or_
-- `git clone https://github.com/ffuf/ffuf ; cd ffuf ; go get ; go build`
+### Discord-first interface
+Use Discord commands, embeds, buttons, and select menus to operate and inspect the system.
 
-Ffuf depends on Go 1.16 or greater.
+### FFUF integration
+The repository includes an FFUF executable and a shell-based core workflow used to locate matching records and pass them into the Python application.
 
-## Example usage
+### SQLite persistence
+Collected data is stored locally in SQLite so the application can reuse historical information across runs.
 
-The usage examples below show just the simplest tasks you can accomplish using `ffuf`. 
+### Deep Scan
+`!deepscan` processes an ID range, collects problem metadata, invokes the FFUF-based extraction workflow, and stores the resulting records in the deep-scan database.
 
-More elaborate documentation that goes through many features with a lot of examples is
-available in the ffuf wiki at [https://github.com/ffuf/ffuf/wiki](https://github.com/ffuf/ffuf/wiki)
+### Interactive dashboard
+`!dashboard <cid>` displays stored records in a paginated Discord dashboard with summary statistics and submission information.
 
-For more extensive documentation, with real life usage examples and tips, be sure to check out the awesome guide:
-"[Everything you need to know about FFUF](https://codingo.io/tools/ffuf/bounty/2020/09/17/everything-you-need-to-know-about-ffuf.html)" by 
-Michael Skelton ([@codingo](https://github.com/codingo)).
+### Historical analysis
+The Discord UI can filter historical data by month, category, and class and display frequently observed problem titles.
 
-You can also practise your ffuf scans against a live host with different lessons and use cases either locally by using the docker container https://github.com/adamtlangley/ffufme or against the live hosted version at http://ffuf.me created by Adam Langley [@adamtlangley](https://twitter.com/adamtlangley).  
+### LIVE / OFFLINE mode
+The application keeps a persistent system mode and can use the normal database or the deep-scan database depending on the active mode.
 
-### Typical directory discovery
+### Owner controls
+The current codebase also includes owner-only controls for maintenance mode, credential replacement, broadcast messages, and deep scanning.
 
-[![asciicast](https://asciinema.org/a/211350.png)](https://asciinema.org/a/211350)
+---
 
-By using the FUZZ keyword at the end of URL (`-u`):
+## 🧭 Architecture
 
-```
-ffuf -w /path/to/wordlist -u https://target/FUZZ
-```
-
-### Virtual host discovery (without DNS records)
-
-[![asciicast](https://asciinema.org/a/211360.png)](https://asciinema.org/a/211360)
-
-Assuming that the default virtualhost response size is 4242 bytes, we can filter out all the responses of that size (`-fs 4242`)while fuzzing the Host - header:
-
-```
-ffuf -w /path/to/vhost/wordlist -u https://target -H "Host: FUZZ" -fs 4242
-```
-
-### GET parameter fuzzing
-
-GET parameter name fuzzing is very similar to directory discovery, and works by defining the `FUZZ` keyword as a part of the URL. This also assumes a response size of 4242 bytes for invalid GET parameter name.
-
-```
-ffuf -w /path/to/paramnames.txt -u https://target/script.php?FUZZ=test_value -fs 4242
+```text
+Discord
+  │
+  ▼
+main.py
+Discord bot + application logic
+  │
+  ├──────────────► SQLite databases
+  │
+  └──────────────► nexus_core.sh
+                       │
+                       ▼
+                      FFUF
+                       │
+                       ▼
+                Retrieved records
+                       │
+                       ▼
+                     SQLite
+                       │
+                       ▼
+              Discord dashboard
 ```
 
-If the parameter name is known, the values can be fuzzed the same way. This example assumes a wrong parameter value returning HTTP response code 401.
+At a high level, `main.py` handles Discord interactions and application logic. The shell layer uses FFUF as part of the extraction workflow, while SQLite provides persistent local storage.
 
-```
-ffuf -w /path/to/values.txt -u https://target/script.php?valid_name=FUZZ -fc 401
-```
+---
 
-### POST data fuzzing
+## 📦 Project structure
 
-This is a very straightforward operation, again by using the `FUZZ` keyword. This example is fuzzing only part of the POST request. We're again filtering out the 401 responses.
-
-```
-ffuf -w /path/to/postdata.txt -X POST -d "username=admin\&password=FUZZ" -u https://target/login.php -fc 401
-```
-
-### Maximum execution time
-
-If you don't want ffuf to run indefinitely, you can use the `-maxtime`. This stops __the entire__ process after a given time (in seconds).
-
-```
-ffuf -w /path/to/wordlist -u https://target/FUZZ -maxtime 60
-```
-
-When working with recursion, you can control the maxtime __per job__ using `-maxtime-job`. This will stop the current job after a given time (in seconds) and continue with the next one. New jobs are created when the recursion functionality detects a subdirectory.
-
-```
-ffuf -w /path/to/wordlist -u https://target/FUZZ -maxtime-job 60 -recursion -recursion-depth 2
+```text
+NexDisNew/
+├── main.py                    # Main Discord bot and application logic
+├── keep_alive.py              # Flask keep-alive endpoint
+├── nexus_core.sh              # FFUF-based extraction workflow
+├── ffuf                       # Included FFUF executable
+├── ffuf_2.1.0_linux_amd64.tar.gz
+│                              # FFUF Linux archive
+├── nexus_overseer.db          # Main SQLite database
+├── deepscan_data.db           # Deep-scan / historical database
+├── rescan_data.db             # Additional local SQLite data
+├── nexus_mode.txt             # Persistent LIVE / OFFLINE state
+├── pyproject.toml             # Python project metadata
+└── README.md
 ```
 
-It is also possible to combine both flags limiting the per job maximum execution time as well as the overall execution time. If you do not use recursion then both flags behave equally.
+The SQLite files are intentionally included in the repository as part of the project's current public data state.
 
-### Using external mutator to produce test cases
+---
 
-For this example, we'll fuzz JSON data that's sent over POST. [Radamsa](https://gitlab.com/akihe/radamsa) is used as the mutator.
+## 🛠️ Requirements
 
-When `--input-cmd` is used, ffuf will display matches as their position. This same position value will be available for the callee as an environment variable `$FFUF_NUM`. We'll use this position value as the seed for the mutator. Files example1.txt and example2.txt contain valid JSON payloads. We are matching all the responses, but filtering out response code `400 - Bad request`:
+The current codebase is designed around:
 
-```
-ffuf --input-cmd 'radamsa --seed $FFUF_NUM example1.txt example2.txt' -H "Content-Type: application/json" -X POST -u https://ffuf.io.fi/FUZZ -mc all -fc 400
-```
+- Python **3.11+**
+- Linux environment recommended for the included shell/FFUF workflow
+- `bash`
+- `curl`
+- `jq`
+- `seq`
+- FFUF
+- A Discord bot/application
 
-It of course isn't very efficient to call the mutator for each payload, so we can also pre-generate the payloads, still using [Radamsa](https://gitlab.com/akihe/radamsa) as an example:
+Python packages imported by the current application include:
 
-```
-# Generate 1000 example payloads
-radamsa -n 1000 -o %n.txt example1.txt example2.txt
-
-# This results into files 1.txt ... 1000.txt
-# Now we can just read the payload data in a loop from file for ffuf
-
-ffuf --input-cmd 'cat $FFUF_NUM.txt' -H "Content-Type: application/json" -X POST -u https://ffuf.io.fi/ -mc all -fc 400
-```
-
-### Configuration files
-
-When running ffuf, it first checks if a default configuration file exists. Default path for a `ffufrc` file is
-`$XDG_CONFIG_HOME/ffuf/ffufrc`.  You can configure one or multiple options in this file, and they will be applied on 
-every subsequent ffuf job. An example of ffufrc file can be found 
-[here](https://github.com/ffuf/ffuf/blob/master/ffufrc.example). 
-
-A more detailed description about configuration file locations can be found in the wiki: 
-[https://github.com/ffuf/ffuf/wiki/Configuration](https://github.com/ffuf/ffuf/wiki/Configuration)
-
-The configuration options provided on the command line override the ones loaded from the default `ffufrc` file.
-Note: this does not apply for CLI flags that can be provided more than once. One of such examples is `-H` (header) flag.
-In this case, the `-H` values provided on the command line will be _appended_ to the ones from the config file instead.
-
-Additionally, in case you wish to use bunch of configuration files for different use cases, you can do this by defining
-the configuration file path using `-config` command line flag that takes the file path to the configuration file as its
-parameter. 
-
-<p align="center">
-  <img width="250" src="_img/ffuf_juggling_250.png">
-</p>
-
-## Usage
-
-To define the test case for ffuf, use the keyword `FUZZ` anywhere in the URL (`-u`), headers (`-H`), or POST data (`-d`).
-
-```
-Fuzz Faster U Fool - v2.1.0
-
-HTTP OPTIONS:
-  -H                  Header `"Name: Value"`, separated by colon. Multiple -H flags are accepted.
-  -X                  HTTP method to use
-  -b                  Cookie data `"NAME1=VALUE1; NAME2=VALUE2"` for copy as curl functionality.
-  -cc                 Client cert for authentication. Client key needs to be defined as well for this to work
-  -ck                 Client key for authentication. Client certificate needs to be defined as well for this to work
-  -d                  POST data
-  -http2              Use HTTP2 protocol (default: false)
-  -ignore-body        Do not fetch the response content. (default: false)
-  -r                  Follow redirects (default: false)
-  -raw                Do not encode URI (default: false)
-  -recursion          Scan recursively. Only FUZZ keyword is supported, and URL (-u) has to end in it. (default: false)
-  -recursion-depth    Maximum recursion depth. (default: 0)
-  -recursion-strategy Recursion strategy: "default" for a redirect based, and "greedy" to recurse on all matches (default: default)
-  -replay-proxy       Replay matched requests using this proxy.
-  -sni                Target TLS SNI, does not support FUZZ keyword
-  -timeout            HTTP request timeout in seconds. (default: 10)
-  -u                  Target URL
-  -x                  Proxy URL (SOCKS5 or HTTP). For example: http://127.0.0.1:8080 or socks5://127.0.0.1:8080
-
-GENERAL OPTIONS:
-  -V                  Show version information. (default: false)
-  -ac                 Automatically calibrate filtering options (default: false)
-  -acc                Custom auto-calibration string. Can be used multiple times. Implies -ac
-  -ach                Per host autocalibration (default: false)
-  -ack                Autocalibration keyword (default: FUZZ)
-  -acs                Custom auto-calibration strategies. Can be used multiple times. Implies -ac
-  -c                  Colorize output. (default: false)
-  -config             Load configuration from a file
-  -json               JSON output, printing newline-delimited JSON records (default: false)
-  -maxtime            Maximum running time in seconds for entire process. (default: 0)
-  -maxtime-job        Maximum running time in seconds per job. (default: 0)
-  -noninteractive     Disable the interactive console functionality (default: false)
-  -p                  Seconds of `delay` between requests, or a range of random delay. For example "0.1" or "0.1-2.0"
-  -rate               Rate of requests per second (default: 0)
-  -s                  Do not print additional information (silent mode) (default: false)
-  -sa                 Stop on all error cases. Implies -sf and -se. (default: false)
-  -scraperfile        Custom scraper file path
-  -scrapers           Active scraper groups (default: all)
-  -se                 Stop on spurious errors (default: false)
-  -search             Search for a FFUFHASH payload from ffuf history
-  -sf                 Stop when > 95% of responses return 403 Forbidden (default: false)
-  -t                  Number of concurrent threads. (default: 40)
-  -v                  Verbose output, printing full URL and redirect location (if any) with the results. (default: false)
-
-MATCHER OPTIONS:
-  -mc                 Match HTTP status codes, or "all" for everything. (default: 200-299,301,302,307,401,403,405,500)
-  -ml                 Match amount of lines in response
-  -mmode              Matcher set operator. Either of: and, or (default: or)
-  -mr                 Match regexp
-  -ms                 Match HTTP response size
-  -mt                 Match how many milliseconds to the first response byte, either greater or less than. EG: >100 or <100
-  -mw                 Match amount of words in response
-
-FILTER OPTIONS:
-  -fc                 Filter HTTP status codes from response. Comma separated list of codes and ranges
-  -fl                 Filter by amount of lines in response. Comma separated list of line counts and ranges
-  -fmode              Filter set operator. Either of: and, or (default: or)
-  -fr                 Filter regexp
-  -fs                 Filter HTTP response size. Comma separated list of sizes and ranges
-  -ft                 Filter by number of milliseconds to the first response byte, either greater or less than. EG: >100 or <100
-  -fw                 Filter by amount of words in response. Comma separated list of word counts and ranges
-
-INPUT OPTIONS:
-  -D                  DirSearch wordlist compatibility mode. Used in conjunction with -e flag. (default: false)
-  -e                  Comma separated list of extensions. Extends FUZZ keyword.
-  -enc                Encoders for keywords, eg. 'FUZZ:urlencode b64encode'
-  -ic                 Ignore wordlist comments (default: false)
-  -input-cmd          Command producing the input. --input-num is required when using this input method. Overrides -w.
-  -input-num          Number of inputs to test. Used in conjunction with --input-cmd. (default: 100)
-  -input-shell        Shell to be used for running command
-  -mode               Multi-wordlist operation mode. Available modes: clusterbomb, pitchfork, sniper (default: clusterbomb)
-  -request            File containing the raw http request
-  -request-proto      Protocol to use along with raw request (default: https)
-  -w                  Wordlist file path and (optional) keyword separated by colon. eg. '/path/to/wordlist:KEYWORD'
-
-OUTPUT OPTIONS:
-  -debug-log          Write all of the internal logging to the specified file.
-  -o                  Write output to file
-  -od                 Directory path to store matched results to.
-  -of                 Output file format. Available formats: json, ejson, html, md, csv, ecsv (or, 'all' for all formats) (default: json)
-  -or                 Don't create the output file if we don't have results (default: false)
-
-EXAMPLE USAGE:
-  Fuzz file paths from wordlist.txt, match all responses but filter out those with content-size 42.
-  Colored, verbose output.
-    ffuf -w wordlist.txt -u https://example.org/FUZZ -mc all -fs 42 -c -v
-
-  Fuzz Host-header, match HTTP 200 responses.
-    ffuf -w hosts.txt -u https://example.org/ -H "Host: FUZZ" -mc 200
-
-  Fuzz POST JSON data. Match all responses not containing text "error".
-    ffuf -w entries.txt -u https://example.org/ -X POST -H "Content-Type: application/json" \
-      -d '{"name": "FUZZ", "anotherkey": "anothervalue"}' -fr "error"
-
-  Fuzz multiple locations. Match only responses reflecting the value of "VAL" keyword. Colored.
-    ffuf -w params.txt:PARAM -w values.txt:VAL -u https://example.org/?PARAM=VAL -mr "VAL" -c
-
-  More information and examples: https://github.com/ffuf/ffuf
+```text
+discord.py
+python-dotenv
+requests
+aiohttp
+psutil
+Flask
 ```
 
-### Interactive mode
+The current `pyproject.toml` declares Python `>=3.11` but does not declare these application dependencies, so install them separately.
 
-By pressing `ENTER` during ffuf execution, the process is paused and user is dropped to a shell-like interactive mode:
-```
-entering interactive mode
-type "help" for a list of commands, or ENTER to resume.
-> help
+---
 
-available commands:
- afc  [value]             - append to status code filter 
- fc   [value]             - (re)configure status code filter 
- afl  [value]             - append to line count filter 
- fl   [value]             - (re)configure line count filter 
- afw  [value]             - append to word count filter 
- fw   [value]             - (re)configure word count filter 
- afs  [value]             - append to size filter 
- fs   [value]             - (re)configure size filter 
- aft  [value]             - append to time filter 
- ft   [value]             - (re)configure time filter 
- rate [value]             - adjust rate of requests per second (active: 0)
- queueshow                - show job queue
- queuedel [number]        - delete a job in the queue
- queueskip                - advance to the next queued job
- restart                  - restart and resume the current ffuf job
- resume                   - resume current ffuf job (or: ENTER) 
- show                     - show results for the current job
- savejson [filename]      - save current matches to a file
- help                     - you are looking at it
-> 
+## 🚀 Installation
+
+### 1. Clone
+
+```bash
+git clone https://github.com/JansFrans/NexDisNew.git
+cd NexDisNew
 ```
 
-in this mode, filters can be reconfigured, queue managed and the current state saved to disk.
+### 2. Create a virtual environment
 
-When (re)configuring the filters, they get applied posthumously and all the false positive matches from memory that
-would have been filtered out by the newly added filters get deleted.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-The new state of matches can be printed out with a command `show` that will print out all the matches as like they 
-would have been found by `ffuf`.
+### 3. Install dependencies
 
-As "negative" matches are not stored to memory, relaxing the filters cannot unfortunately bring back the lost matches.
-For this kind of scenario, the user is able to use the command `restart`, which resets the state and starts the current
-job from the beginning.
+```bash
+pip install -U pip
+pip install discord.py python-dotenv requests aiohttp psutil Flask
+```
 
-<p align="center">
-  <img width="250" src="_img/ffuf_waving_250.png">
-</p>
+### 4. Prepare the executable files
 
-## License
+```bash
+chmod +x nexus_core.sh
+chmod +x ffuf
+```
 
-ffuf is released under MIT license. See [LICENSE](https://github.com/ffuf/ffuf/blob/master/LICENSE).
+### 5. Configure environment variables
+
+Create `.env` in the project directory:
+
+```env
+DISCORD_TOKEN=your_discord_bot_token
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+Keep real credentials private and do not commit them to a public repository.
+
+### 6. Run
+
+```bash
+python3 main.py
+```
+
+`keep_alive.py` exposes a small Flask service on port `8080` for hosting environments that need a continuously running web endpoint.
+
+---
+
+## 🤖 Discord commands
+
+The current codebase includes commands such as:
+
+```text
+!dashboard <cid>
+!deepscan [start_id] [end_id]
+!maintenance
+!broadcast <message>
+!set_token api <token>
+!set_token gemini <token>
+```
+
+### `!dashboard <cid>`
+
+Shows stored data for a specific CID in an interactive paginated dashboard.
+
+```text
+!dashboard 12345
+```
+
+### `!deepscan [start_id] [end_id]`
+
+Starts the deep-scan workflow over a selected ID range. When no range is supplied, the application uses its saved scan state to determine the next range.
+
+```text
+!deepscan 1000 1200
+```
+
+### `!maintenance`
+
+Toggles maintenance mode. Owner-only.
+
+### `!broadcast <message>`
+
+Sends an announcement to active channels tracked by the application. Owner-only.
+
+### `!set_token ...`
+
+Updates runtime credentials without editing the source file. Owner-only. Tokens should only be handled privately.
+
+---
+
+## 💾 Data storage
+
+NexDisNew uses SQLite for local persistence. The deep-scan database can contain information such as:
+
+- contest/session metadata
+- problem metadata
+- submission IDs
+- usernames and user IDs
+- scores and penalties
+- source code captured by the workflow
+- submission status
+- difficulty labels
+- timestamps
+- problem IDs
+
+The schema can evolve as the project changes. The application includes initialization and migration logic for the deep-scan database.
+
+---
+
+## 🔎 FFUF integration
+
+NexDisNew does not replace FFUF. FFUF is one component inside the larger Discord + extraction workflow.
+
+`nexus_core.sh` uses FFUF to search a numeric input range, identify matching record IDs, retrieve the matching records, and emit structured data for `main.py`.
+
+Simplified flow:
+
+```text
+Input range
+    ↓
+   FFUF
+    ↓
+Matching IDs
+    ↓
+HTTP retrieval
+    ↓
+Structured records
+    ↓
+SQLite
+    ↓
+Discord UI
+```
+
+This is the main reason to use NexDisNew instead of running FFUF alone: the scan/extraction layer is connected to persistent storage and a Discord interface.
+
+---
+
+## 🧪 Typical usage flow
+
+1. Start the Discord bot.
+2. Trigger the appropriate collection or scan command.
+3. Let the FFUF-based workflow process the selected range.
+4. Collected records are stored in SQLite.
+5. Open the dashboard from Discord to inspect the stored results.
+6. Use the historical-analysis UI to explore previously collected sessions.
+
+---
+
+## 🔐 Security notes
+
+This repository is public. Anyone with access to it can inspect committed source files and committed database contents.
+
+Keep credentials in environment variables or your hosting provider's secret store. Do not publish real Discord or AI credentials.
+
+Only use the project against systems and data that you are authorized to access.
+
+---
+
+## 📌 Project status
+
+NexDisNew is an evolving personal project. Its current implementation is closely tied to its existing workflow, data model, and Discord UI, so commands and internal behavior may change over time.
+
+This README documents the project as it currently exists rather than presenting it as a generic FFUF wrapper.
+
+---
+
+## 📄 FFUF / licensing
+
+NexDisNew includes and uses FFUF. Before redistributing the repository or bundled FFUF binaries, review the applicable upstream FFUF license and the licenses of any included components.
+
+Upstream FFUF: https://github.com/ffuf/ffuf
+
+---
+
+## 👤 Author
+
+**JansFrans**
+
+GitHub: https://github.com/JansFrans
+
+Repository: https://github.com/JansFrans/NexDisNew
