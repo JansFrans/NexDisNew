@@ -70,8 +70,11 @@ for pid in $problems; do
             sub_c=$(echo "$res" | jq -r '.result.submitted_count // 1')
             stat=$(echo "$res" | jq -r '.result.status // "Accepted"')
             
-            # Kirim data ke Python
-            echo "NEXUS_DATA|$c_name|$p_title|$u_name|$time_at|$lang|$id_found|$b64_code|$u_id|$score|$total_acc|$penalty|$p_id|$try_c|$sub_c|$stat|$s_type|$TARGET_CID"
+            # =====================================================
+            # 🆕 MODIFIKASI: Tambahkan $pid (problem_id dari loop) 
+            # sebagai field ke-19 (indeks 18) agar Python bisa memfilter.
+            # =====================================================
+            echo "NEXUS_DATA|$c_name|$p_title|$u_name|$time_at|$lang|$id_found|$b64_code|$u_id|$score|$total_acc|$penalty|$p_id|$try_c|$sub_c|$stat|$s_type|$TARGET_CID|$pid"
             
             idx=$((idx + 1))
         done
